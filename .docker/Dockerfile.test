@@ -4,12 +4,14 @@ ARG PHP_IMAGE_VERSION
 ARG COMPOSER_AUTH
 FROM ${CLI_IMAGE} as cli
 
-FROM amazeeio/php:${PHP_IMAGE_VERSION}-cli-drupal-${LAGOON_IMAGE_VERSION}
+FROM oceanic/lagoon-php:${PHP_IMAGE_VERSION}-cli-drupal-${LAGOON_IMAGE_VERSION}
 
-ENV DOCKERIZE_VERSION v0.6.1
-RUN wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-alpine-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
-    && tar -C /usr/local/bin -xzvf dockerize-alpine-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
-    && rm dockerize-alpine-linux-amd64-$DOCKERIZE_VERSION.tar.gz
+ENV DOCKERIZE_VERSION v0.6.2-rc1
+ENV OS alpine-linux
+ENV ARCH arm64
+RUN wget https://github.com/ocean/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-$OS-$ARCH-$DOCKERIZE_VERSION.tar.gz \
+    && tar -C /usr/local/bin -xzvf dockerize-$OS-$ARCH-$DOCKERIZE_VERSION.tar.gz \
+    && rm dockerize-$OS-$ARCH-$DOCKERIZE_VERSION.tar.gz
 
 COPY --from=cli /app /app
 COPY .docker/scripts/phpunit /app/web/profiles/contrib/govcms/.docker/phpunit
