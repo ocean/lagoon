@@ -43,6 +43,8 @@ ENV COMPOSER_MEMORY_LIMIT=-1
 RUN composer selfupdate \
     && composer clearcache
 RUN [[ ! -z "${GITHUB_TOKEN}" ]]  && composer config -g github-oauth.github.com ${GITHUB_TOKEN} || echo "Personal Github OAuth token is not set."
+RUN composer self-update\
+    && composer clearcache
 RUN composer install -d /app \
     && composer clearcache
 
