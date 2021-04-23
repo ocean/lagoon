@@ -3,12 +3,19 @@ ARG LAGOON_IMAGE_VERSION
 ARG COMPOSER_AUTH
 FROM ${CLI_IMAGE} as cli
 
-FROM uselagoon/php-7.4-cli-drupal:${LAGOON_IMAGE_VERSION}
+FROM golang:alpine3.12 AS builder
+RUN apk add --no-cache git
+RUN GIT_TAG=github.com/jwilder/dockerize@v0.6.1 GIT_COMMIT=7c5cd7c34dcf1c81f6b4db132ebceabdaae17153; \
+    go get -ldflags "-X=main.buildVersion=$GIT_TAG" \
+    github.com/jwilder/dockerize@$GIT_COMMIT \
+    && cd /go/pkg/mod/github.com/jwilder/dockerize* \
+    && go mod init github.com/jwilder/dockerize \
+    && go build -mod=mod -o dockerize \
+    && cp dockerize /go/bin/
 
-ENV DOCKERIZE_VERSION v0.6.1
-RUN wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-alpine-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
-    && tar -C /usr/local/bin -xzvf dockerize-alpine-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
-    && rm dockerize-alpine-linux-amd64-$DOCKERIZE_VERSION.tar.gz
+FROM oceaniclagoon/php-7.4-cli-drupal:${LAGOON_IMAGE_VERSION}
+
+COPY --from=builder /go/bin/dockerize /usr/local/bin/dockerize
 
 COPY --from=cli /app /app
 COPY .docker/scripts/phpunit /app/web/profiles/contrib/govcms/.docker/phpunit
