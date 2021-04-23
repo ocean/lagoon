@@ -1,24 +1,36 @@
 ARG LAGOON_IMAGE_VERSION
 
-FROM uselagoon/php-7.4-cli-drupal:${LAGOON_IMAGE_VERSION} as builder
+FROM oceaniclagoon/php-7.4-cli-drupal:${LAGOON_IMAGE_VERSION} as builder
 
 ARG GOVCMS_PROJECT_VERSION
 ARG DRUPAL_CORE_VERSION
 ARG COMPOSER_AUTH
 ARG GITHUB_TOKEN
+ARG TARGETARCH
 
 COPY composer.* /app/
 
 # Copy base file for extensible saas.
 COPY custom /app/custom
 
-# Install yq for YAML parsing.
-RUN wget -O /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/2.4.0/yq_linux_amd64" \
-  && chmod +x /usr/local/bin/yq
-
 # Install jq for JSON parsing.
-RUN wget -O /usr/local/bin/jq "https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64" \
-  && chmod +x /usr/local/bin/jq
+RUN apk add --no-cache oniguruma oniguruma-dev \
+    && apk add --no-cache --virtual .phpize-deps $PHPIZE_DEPS \
+    && cd /tmp/ \
+    && wget "https://github.com/stedolan/jq/releases/download/jq-1.6/jq-1.6.tar.gz" \
+    && tar -xzvf jq-1.6.tar.gz \
+    && cd jq-1.6/ \
+    && ./configure \
+    && make \
+    && make check \
+    && cp jq /usr/local/bin/jq \
+    && chmod +x /usr/local/bin/jq \
+    && rm -rf /var/cache/apk/* /tmp/jq* \
+    && apk del .phpize-deps
+
+# Install yq for YAML parsing.
+RUN wget -O /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/v4.6.3/yq_linux_${TARGETARCH}" \
+  && chmod +x /usr/local/bin/yq
 
 RUN sed -i -e "/govcms\/govcms/ s!\^1.0!${GOVCMS_PROJECT_VERSION}!" /app/composer.json \
     && sed -i -e "/drupal\/core-recommended/ s!\^8.8!${DRUPAL_CORE_VERSION}!" /app/composer.json
@@ -27,6 +39,9 @@ COPY scripts/composer/ScriptHandler.php /app/scripts/composer/ScriptHandler.php
 
 ENV COMPOSER_MEMORY_LIMIT=-1
 # Set the Github OAuth token only when the variable is set.
+# Update Composer to a version which supports GitHub's new token format.
+RUN composer selfupdate \
+    && composer clearcache
 RUN [[ ! -z "${GITHUB_TOKEN}" ]]  && composer config -g github-oauth.github.com ${GITHUB_TOKEN} || echo "Personal Github OAuth token is not set."
 RUN composer install -d /app \
     && composer clearcache
